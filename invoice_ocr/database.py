@@ -58,8 +58,8 @@ def load_learning_hints() -> list[dict[str, Any]]:
 
 
 def save_learning_feedback(payload: dict[str, Any]) -> dict[str, str]:
-    if not Settings.oracle_enabled():
-        raise RuntimeError("Oracle persistence is disabled or incomplete.")
+    if not Settings.oracle_learning_enabled():
+        raise RuntimeError("Oracle learning is disabled or incomplete.")
 
     raw_label = str(payload.get("field_label_raw") or "").strip()
     corrected_column = str(
