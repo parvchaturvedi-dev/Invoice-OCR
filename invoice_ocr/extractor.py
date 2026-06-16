@@ -9,6 +9,8 @@ from typing import Any
 import pytesseract
 from PIL import Image, ImageFilter, ImageOps
 
+from .intelligence import extract_intelligent_fields
+
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
 PDF_EXTENSIONS = {".pdf"}
@@ -28,7 +30,11 @@ class ExtractedField:
         }
 
 
-def extract_invoice(file_path: str | Path, uploaded_by: str = "accountant") -> dict[str, Any]:
+def extract_invoice(
+    file_path: str | Path,
+    uploaded_by: str = "accountant",
+    learning_hints: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     path = Path(file_path)
     if not path.exists():
         raise FileNotFoundError(f"File not found: {path}")
@@ -44,18 +50,28 @@ def extract_invoice(file_path: str | Path, uploaded_by: str = "accountant") -> d
         page_confidences.append(confidence)
 
     raw_text = "\n\n".join(page_texts)
-    fields = _extract_fields(raw_text)
+    intelligent_result = extract_intelligent_fields(raw_text, learning_hints=learning_hints)
     upload_date = datetime.now().astimezone().isoformat(timespec="seconds")
 
-    fields["upload_date"] = ExtractedField(upload_date, 1.0, "system")
-    fields["uploaded_by"] = ExtractedField(uploaded_by, 1.0, "input")
+    fields = intelligent_result["fields"]
+    flat_fields = intelligent_result["flat_fields"]
+    fields["upload_date"] = ExtractedField(upload_date, 1.0, "system").to_json()
+    fields["uploaded_by"] = ExtractedField(uploaded_by, 1.0, "input").to_json()
+    flat_fields["upload_date"] = upload_date
+    flat_fields["uploaded_by"] = uploaded_by
 
     return {
         "file_name": path.name,
         "page_count": len(images),
         "ocr_confidence": round(_average(page_confidences), 2),
-        "fields": {name: field.to_json() for name, field in fields.items()},
-        "flat_fields": {name: field.value for name, field in fields.items()},
+        "fields": fields,
+        "flat_fields": flat_fields,
+        "structured_fields": intelligent_result["structured_fields"],
+        "extraction_results": intelligent_result["extraction_results"],
+        "discovered_fields": intelligent_result["discovered_fields"],
+        "missing_fields": intelligent_result["missing_fields"],
+        "validation_status": intelligent_result["validation_status"],
+        "learning": intelligent_result["learning"],
         "raw_text": raw_text,
     }
 

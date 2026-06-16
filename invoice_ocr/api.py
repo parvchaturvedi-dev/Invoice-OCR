@@ -8,7 +8,7 @@ from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.utils import secure_filename
 
 from .config import Settings
-from .database import save_invoice_result
+from .database import load_learning_hints, save_invoice_result, save_learning_feedback
 from .extractor import extract_invoice
 
 
@@ -23,7 +23,11 @@ def create_app() -> Flask:
                 {
                     "service": Settings.APP_NAME,
                     "status": "running",
-                    "endpoints": ["/api/v1/health", "/api/v1/ocr/extract"],
+                    "endpoints": [
+                        "/api/v1/health",
+                        "/api/v1/ocr/extract",
+                        "/api/v1/ocr/feedback",
+                    ],
                 }
             ),
             200,
@@ -53,7 +57,12 @@ def create_app() -> Flask:
             temp_path = Path(temp_file.name)
 
         try:
-            result = extract_invoice(temp_path, uploaded_by=uploaded_by)
+            learning_hints = load_learning_hints()
+            result = extract_invoice(
+                temp_path,
+                uploaded_by=uploaded_by,
+                learning_hints=learning_hints,
+            )
             response_payload: dict[str, object] = {
                 "success": True,
                 "message": "Invoice extracted successfully.",
@@ -66,6 +75,7 @@ def create_app() -> Flask:
                     {
                         "file_name": original_name,
                         "file_type": uploaded_file.mimetype or "application/octet-stream",
+                        "file_size": temp_path.stat().st_size,
                         "uploaded_by": uploaded_by,
                     },
                 )
@@ -76,6 +86,28 @@ def create_app() -> Flask:
             return jsonify({"success": False, "error": str(exc)}), 500
         finally:
             temp_path.unlink(missing_ok=True)
+
+    @app.post("/api/v1/ocr/feedback")
+    def feedback() -> tuple[object, int]:
+        auth_error = _validate_api_key()
+        if auth_error is not None:
+            return auth_error
+
+        payload = request.get_json(silent=True) or {}
+        try:
+            learning_result = save_learning_feedback(payload)
+            return (
+                jsonify(
+                    {
+                        "success": True,
+                        "message": "Correction learned successfully.",
+                        "learning": learning_result,
+                    }
+                ),
+                200,
+            )
+        except Exception as exc:
+            return jsonify({"success": False, "error": str(exc)}), 500
 
     @app.errorhandler(RequestEntityTooLarge)
     def file_too_large(_: RequestEntityTooLarge) -> tuple[object, int]:

@@ -11,6 +11,7 @@ class Settings:
     MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "15"))
     API_KEY = os.getenv("API_KEY", "").strip()
     SAVE_TO_ORACLE = os.getenv("SAVE_TO_ORACLE", "false").lower() == "true"
+    USE_ORACLE_LEARNING = os.getenv("USE_ORACLE_LEARNING", "true").lower() == "true"
     ORACLE_USER = os.getenv("ORACLE_USER", "").strip()
     ORACLE_PASSWORD = os.getenv("ORACLE_PASSWORD", "").strip()
     ORACLE_DSN = os.getenv("ORACLE_DSN", "").strip()
@@ -22,10 +23,17 @@ class Settings:
             "environment": cls.APP_ENV,
             "max_upload_mb": cls.MAX_UPLOAD_MB,
             "oracle_enabled": cls.oracle_enabled(),
+            "oracle_learning_enabled": cls.oracle_learning_enabled(),
         }
 
     @classmethod
     def oracle_enabled(cls) -> bool:
         return cls.SAVE_TO_ORACLE and all(
+            [cls.ORACLE_USER, cls.ORACLE_PASSWORD, cls.ORACLE_DSN]
+        )
+
+    @classmethod
+    def oracle_learning_enabled(cls) -> bool:
+        return cls.USE_ORACLE_LEARNING and all(
             [cls.ORACLE_USER, cls.ORACLE_PASSWORD, cls.ORACLE_DSN]
         )

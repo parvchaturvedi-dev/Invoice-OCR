@@ -1,6 +1,6 @@
 # Invoice OCR Backend
 
-Python + Tesseract backend for extracting invoice data from image and PDF files. The service exposes an HTTP API, supports optional Oracle persistence, and is ready for Docker-based Render deployment.
+Python + Tesseract backend for extracting invoice data from image and PDF files. The service exposes an HTTP API, supports optional Oracle persistence, has an offline scoring-based intelligence layer, and can learn from manual corrections stored in Oracle.
 
 ## Single Run Command
 
@@ -15,6 +15,7 @@ The same app entrypoint is used inside Docker and on Render.
 - `GET /`
 - `GET /api/v1/health`
 - `POST /api/v1/ocr/extract`
+- `POST /api/v1/ocr/feedback`
 
 ## Extracted Fields
 
@@ -56,13 +57,26 @@ curl -X POST http://127.0.0.1:8000/api/v1/ocr/extract -F "file=@C:\path\to\invoi
 - `MAX_UPLOAD_MB=15`
 - `API_KEY=your-secret-key`
 - `SAVE_TO_ORACLE=true`
+- `USE_ORACLE_LEARNING=true`
 - `ORACLE_USER=...`
 - `ORACLE_PASSWORD=...`
 - `ORACLE_DSN=...`
 
 ## Oracle Schema
 
-Use [sql/schema.sql](/C:/Users/parvc/OneDrive/Documents/invoice-ocr-project/sql/schema.sql) before enabling Oracle persistence.
+Use [sql/schema.sql](/C:/Users/parvc/OneDrive/Documents/invoice-ocr-project/sql/schema.sql) before enabling Oracle persistence. The schema stores documents, invoices, extraction results, dynamic fields, validation misses, and correction learning.
+
+## Self-Learning Feedback
+
+When an accountant corrects a field mapping in APEX, call:
+
+```powershell
+curl -X POST http://127.0.0.1:8000/api/v1/ocr/feedback `
+  -H "Content-Type: application/json" `
+  -d "{\"field_label_raw\":\"Dispatch Ref\",\"corrected_to_column\":\"PO_NUMBER\",\"was_correct\":false}"
+```
+
+The backend stores that correction in `inv_field_synonyms` and `inv_ai_learning_log`. Future OCR calls load those Oracle hints and use them in the offline scoring engine.
 
 ## Render Deployment
 
