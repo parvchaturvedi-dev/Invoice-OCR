@@ -16,6 +16,20 @@ def create_app() -> Flask:
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = Settings.MAX_UPLOAD_MB * 1024 * 1024
 
+    @app.after_request
+    def add_cors_headers(response):
+        origin = request.headers.get("Origin")
+        allowed_origin = _cors_origin_for(origin)
+        if allowed_origin:
+            response.headers["Access-Control-Allow-Origin"] = allowed_origin
+            response.headers["Vary"] = "Origin"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = (
+                "Content-Type, X-API-Key, Authorization"
+            )
+            response.headers["Access-Control-Max-Age"] = "86400"
+        return response
+
     @app.get("/")
     def index() -> tuple[object, int]:
         return (
@@ -132,3 +146,12 @@ def _validate_api_key() -> tuple[object, int] | None:
     if provided_key == Settings.API_KEY:
         return None
     return jsonify({"success": False, "error": "Unauthorized"}), 401
+
+
+def _cors_origin_for(origin: str | None) -> str | None:
+    allowed_origins = Settings.allowed_origins()
+    if "*" in allowed_origins:
+        return origin or "*"
+    if origin in allowed_origins:
+        return origin
+    return None

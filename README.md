@@ -56,6 +56,7 @@ curl -X POST http://127.0.0.1:8000/api/v1/ocr/extract -F "file=@C:\path\to\invoi
 - `HOST=0.0.0.0`
 - `MAX_UPLOAD_MB=15`
 - `API_KEY=your-secret-key`
+- `CORS_ORIGINS=*`
 - `SAVE_TO_ORACLE=true`
 - `USE_ORACLE_LEARNING=true`
 - `ORACLE_USER=...`
